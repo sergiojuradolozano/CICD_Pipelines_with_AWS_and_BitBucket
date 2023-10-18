@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+      - eu-west-1
+      - eu-central-1
+      - eu-central-2
+    Description: 'This value will be replace by the value of the TemplateConfiguration file'
+  CidrBlock:
+    Type: String
+    Default: 10.160.0.0/16
+    Description: 'This value will be replace by the value of the TemplateConfiguration file'
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: false
+      InstanceTenancy: default
+      Tags:
+        - Key: "Name"
+          Value: "My VPC"
+        
+  IGW: 
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: "Name"
+        Value: "MyIGW"
+
+  IGWAttachment: 
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC 
+      InternetGatewayId: !Ref IGW
+
+  DHCPOptions: 
+    Type: AWS::EC2::DHCPOptions
+    Properties: 
+      DomainName: !Sub "${AWS::Region}.compute.internal"
+      DomainNameServers: 
+        - AmazonProvidedDNS
+        
+  DHCPOptionsAssociation:
+    Type: AWS::EC2::VPCDHCPOptionsAssociation
+    Properties: 
+      VpcId: !Ref VPC
+      DhcpOptionsId: !Ref DHCPOptions
+      
+Outputs:
+  servicesVPC: 
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${Environment}VPC-${AWS::Region}"
+
+  servicesIGW: 
+    Value: !Ref IGW
+    Export:
+      Name: !Sub "${Environment}IGW-${AWS::Region}"
+           

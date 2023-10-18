@@ -1,0 +1,12 @@
+{
+  "Parameters": {
+    "Environment" : "uat",
+    "CidrBlock" : "10.170.0.0/16"
+  },
+
+  "Tags":
+  {
+    "Environment" : "uat",
+    "CostCentre": "core-infrastructure"
+  }
+}

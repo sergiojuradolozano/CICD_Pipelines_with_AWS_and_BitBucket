@@ -1,0 +1,415 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+  InfrastructureAWS:
+    Type: String
+    Default: 0.0.1
+    Description: Enter version number of code base
+
+Conditions:
+  IsProd:
+    !Equals [!Ref Environment, prod]
+
+Mappings:
+  Constants:
+    Lambda:
+      ProjectName: infrastructure-aws
+      Runtime: java11
+  DeploymentEnvironmentMap:
+    dev:
+      env: dev
+    uat:
+      env: uat
+    prod:
+      env: prod
+
+Resources:
+
+  AuroraPostgresqlSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Description: Internal network access to aurora database
+    Properties:
+      GroupDescription: allow access to AuroraPostgreSQL from IP
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${Environment}VPC-${AWS::Region}"
+      GroupName: !Sub ${Environment}-aurora-postgresql-access
+      SecurityGroupIngress:
+        - Description: Internet access to Aurora DB
+          IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.@@NETWORK@@.0.0/16
+
+  commonAwsDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Join [ "-", [ {"Fn::Sub" : "${AWS::StackName}"}, "commonAwsDependenciesLayer" ] ]
+      CompatibleRuntimes:
+        - !FindInMap [Constants, Lambda, Runtime]
+      Content:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, "infrastructure-aws-application-common-aws-dependencies-layer.zip" ] ]
+  dependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Join [ "-", [ {"Fn::Sub" : "${AWS::StackName}"}, "dependenciesLayer" ] ]
+      CompatibleRuntimes:
+        - !FindInMap [Constants, Lambda, Runtime]
+      Content:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, "infrastructure-aws-application-dependencies-layer.zip" ] ]
+
+  ftpDownloadFileDLQ:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Sub ${Environment}-ftpDownloadFileDLQ.fifo
+      FifoQueue: true
+      ContentBasedDeduplication : true
+      MessageRetentionPeriod: 43200
+
+  ftpDownloadFileQueue:
+    Type: "AWS::SQS::Queue"
+    Properties:
+      QueueName: !Sub ${Environment}-ftpDownloadFile.fifo
+      FifoQueue: true
+      ContentBasedDeduplication : true
+      MessageRetentionPeriod: 43200
+      ReceiveMessageWaitTimeSeconds: 10
+      VisibilityTimeout: 900
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ftpDownloadFileDLQ.Arn
+        maxReceiveCount: 10
+
+  httpDownloadHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-httpDownloadHandler
+      Handler: com.ultumus.infrastructure.aws.http.HttpDownloadRequestHandler::handleHttpDownloadRequest
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 900
+      MemorySize: 1536
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role: 
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      VpcConfig:
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub "${Environment}InternalSubnet-@@DB_AVAILABILITY_ZONE_ONE@@"
+        SecurityGroupIds:
+          - !Ref AuroraPostgresqlSecurityGroup
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          HandlerClassName : com.ultumus.infrastructure.aws.http.HttpDownloadHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.http.HttpDownloadHandler$HttpDownloadHandlerConfig
+
+  ftpDownloadHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-ftpDownloadHandler
+      Handler: com.ultumus.common.control.SpringContextAwareRequestHandler::handleSqsEvent
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 900
+      MemorySize: 1536
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role:
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      VpcConfig:
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub "${Environment}InternalSubnet-@@DB_AVAILABILITY_ZONE_ONE@@"
+        SecurityGroupIds:
+          - !Ref AuroraPostgresqlSecurityGroup
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          FtpDownloadFileQueue: !Ref ftpDownloadFileQueue
+          MessageClassName : com.ultumus.infrastructure.aws.ftp.FileDownloadRequest
+          HandlerClassName : com.ultumus.infrastructure.aws.ftp.FtpDownloadHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.ftp.FtpDownloadHandler$FtpDownloadHandlerConfig
+
+  ftpDownloadHandlerMapping:
+    Type: "AWS::Lambda::EventSourceMapping"
+    Properties: 
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt ftpDownloadFileQueue.Arn
+      FunctionName: !GetAtt ftpDownloadHandler.Arn
+
+  ftpDeleteHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-ftpDeleteHandler
+      Handler: com.ultumus.infrastructure.aws.ftp.DeleteRequestHandler::handleDeleteRequest
+      Runtime: !FindInMap [ Constants, Lambda, Runtime ]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ { "Fn::FindInMap": [ "Constants", "Lambda", "ProjectName" ] }, { "Fn::Sub": "/v${InfrastructureAWS}/" }, { "Fn::FindInMap": [ "Constants", "Lambda", "ProjectName" ] }, ".jar" ] ]
+      Timeout: 900
+      MemorySize: 3000
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role:
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      VpcConfig:
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub "${Environment}InternalSubnet-@@DB_AVAILABILITY_ZONE_ONE@@"
+        SecurityGroupIds:
+          - !Ref AuroraPostgresqlSecurityGroup
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          MessageClassName: com.ultumus.infrastructure.aws.ftp.FileDeleteRequest
+          HandlerClassName: com.ultumus.infrastructure.aws.ftp.FtpDeleteHandler
+          ConfigClassName: com.ultumus.infrastructure.aws.ftp.FtpDeleteHandler$FtpDeleteHandlerConfig
+
+  ftpDirectorySynchronizeHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-ftpDirectorySynchronizeHandler
+      Handler: com.ultumus.infrastructure.aws.ftp.DirectorySynchronizeRequestHandler::handleDirectorySynchronizeRequest
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 900
+      MemorySize: 1536
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role: 
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      VpcConfig:
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub "${Environment}InternalSubnet-@@DB_AVAILABILITY_ZONE_ONE@@"
+        SecurityGroupIds:
+          - !Ref AuroraPostgresqlSecurityGroup
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          AccountId: !Sub ${AWS::AccountId}
+          FtpDownloadFileQueue: !Ref ftpDownloadFileQueue
+          HandlerClassName : com.ultumus.infrastructure.aws.ftp.FtpDirectorySynchronizeHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.ftp.FtpDirectorySynchronizeHandler$FtpDirectorySynchronizeHandlerConfig
+
+# Single Region definition (Multi Region to be added in by templating)
+  s3EventRouterHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-s3EventRouterHandler
+      Handler: com.ultumus.common.control.SpringContextAwareRequestHandler::handleS3EventNotification
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 300
+      MemorySize: 512
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      VpcConfig:
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub "${Environment}InternalSubnet-@@DB_AVAILABILITY_ZONE_ONE@@"
+        SecurityGroupIds:
+          - !Ref AuroraPostgresqlSecurityGroup
+      Role:
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          MultiRegion: '@@MULTI_REGION@@'
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          HandlerClassName : com.ultumus.infrastructure.aws.s3.S3EventRouterHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.s3.S3EventRouterHandler$S3EventRouterHandlerConfig
+          ConfigKey: 'S3EventRouter'
+          PublicHostedZoneId: !Sub ${Environment}-publicZoneUltumusCom
+
+  infraProcessingErrorNotificationTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: !Sub ${Environment}-infraProcessingErrorNotificationTopic
+      TopicName: !Sub ${Environment}-infraProcessingErrorNotificationTopic
+      Subscription:
+      - Endpoint: @ultumus.com
+        Protocol: email
+
+  downloaderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "events.amazonaws.com"
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: "InvokeAuthorizerFunction"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - lambda:InvokeAsync
+                  - lambda:InvokeFunction
+                Resource: !GetAtt httpDownloadHandler.Arn
+              - Effect: "Allow"
+                Action:
+                  - lambda:InvokeAsync
+                  - lambda:InvokeFunction
+                Resource: !GetAtt ftpDownloadHandler.Arn
+              - Effect: "Allow"
+                Action:
+                  - lambda:InvokeAsync
+                  - lambda:InvokeFunction
+                Resource: !GetAtt ftpDirectorySynchronizeHandler.Arn
+
+  GenericFileSplitterHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-GenericFileSplitterHandler
+      Handler: com.ultumus.common.control.SpringContextAwareRequestHandler::handleS3EventNotification
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 900
+      MemorySize: 4096
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role:
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment}
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          HandlerClassName : com.ultumus.infrastructure.aws.s3.filesplitters.GenericFileSplitterHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.s3.filesplitters.GenericFileSplitterHandler$GenericFileSplitterHandlerConfig
+
+  zipFileHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Environment}-zipFileHandler
+      Handler: com.ultumus.common.control.SpringContextAwareRequestHandler::handleS3EventNotification
+      Runtime: !FindInMap [Constants, Lambda, Runtime]
+      Layers:
+        - !Ref commonAwsDependenciesLayer
+        - !Ref dependenciesLayer
+      Code:
+        S3Bucket: !Join [ ".", [ {"Fn::FindInMap" : ["DeploymentEnvironmentMap", !Ref Environment, "env"]},{"Fn::Sub" : "${AWS::Region}"}, "deployment" ] ]
+        S3Key: !Join [ "", [ {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, {"Fn::Sub" : "/v${InfrastructureAWS}/"}, {"Fn::FindInMap" : ["Constants", "Lambda", "ProjectName"]}, ".jar" ] ]
+      Timeout: 300
+      MemorySize: 1024
+      SnapStart:
+        ApplyOn: PublishedVersions
+      DeadLetterConfig:
+        TargetArn:
+          Fn::ImportValue: !Sub ${Environment}-dlqDefaultTopic
+      Role: 
+        Fn::ImportValue: !Sub ${Environment}-${AWS::Region}-genericRegionalLambdaRole
+      Environment:
+        Variables:
+          Environment: !Sub ${Environment} 
+          PackageVersion: !Sub ${InfrastructureAWS}
+          AccountId: !Sub ${AWS::AccountId}
+          HandlerClassName : com.ultumus.infrastructure.aws.s3.ZipFileHandler
+          ConfigClassName : com.ultumus.infrastructure.aws.s3.ZipFileHandler$ZipFileHandlerConfig
+
+Outputs:
+
+  AuroraAccessSgGroup:
+    Value: !Ref AuroraPostgresqlSecurityGroup
+    Export:
+      Name: !Sub ${Environment}-aurora-postgresql-access
+  httpDownloadHandler:
+    Value: !GetAtt httpDownloadHandler.Arn
+    Export:
+      Name: !Sub ${Environment}-httpDownloadHandler
+  ftpDownloadHandler:
+    Value: !GetAtt ftpDownloadHandler.Arn
+    Export:
+      Name: !Sub ${Environment}-ftpDownloadHandler
+  ftpDirectorySynchronizeHandler:
+    Value: !GetAtt ftpDirectorySynchronizeHandler.Arn
+    Export: 
+      Name: !Sub ${Environment}-ftpDirectorySynchronizeHandler
+  ftpDeleteHandler:
+    Value: !GetAtt ftpDeleteHandler.Arn
+    Export:
+      Name: !Sub ${Environment}-ftpDeleteHandler
+  s3EventRouterHandler:
+    Value: !GetAtt s3EventRouterHandler.Arn
+    Export:
+      Name: !Sub ${Environment}-s3EventRouterHandler
+  infraProcessingErrorNotificationTopicArn:
+    Value: !Ref infraProcessingErrorNotificationTopic
+    Export:
+      Name: !Sub ${Environment}-infraProcessingErrorNotificationTopic
+  downloaderRole:
+    Value: !GetAtt downloaderRole.Arn
+    Export:
+      Name: !Sub ${Environment}-${AWS::Region}-downloaderRole
+      

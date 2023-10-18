@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+      - eu-west-1
+      - eu-central-1
+      - eu-central-2
+    Description: 'This value will be replace by the value of the TemplateConfiguration file'
+
+Resources:
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: ElasticIP
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId: 
+        Fn::ImportValue: 
+          !Sub "${Environment}DmzSubnet-${Region}a"
+      Tags:
+      - Key: "Name"
+        Value: "NatGateway"
+
+  InternalInternetSubnetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: 
+        Fn::ImportValue: 
+          !Sub "${Environment}InternalSubnetRouteTable-${Region}a"
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+

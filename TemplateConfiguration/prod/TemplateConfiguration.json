@@ -1,0 +1,12 @@
+{
+  "Parameters": {
+    "Environment" : "prod",
+    "CidrBlock" : "10.180.0.0/16"
+  },
+
+  "Tags":
+  {
+    "Environment" : "prod",
+    "CostCentre": "core-infrastructure"
+  }
+}
