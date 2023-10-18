@@ -1,0 +1,381 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploy -Core-Network CodePipeline"
+Parameters:
+  Environment:
+    Type: String
+    Default: dev-
+    AllowedValues:
+      - dev-
+      - uat-
+      - prod-
+    Description: Enter dev-, uat- or prod-. Default is dev-
+
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+      - eu-west-1
+      - eu-central-1
+      - eu-central-2
+
+Mappings:
+  DeploymentEnvironmentMap:
+    dev-:
+      env: dev
+    uat-:
+      env: uat
+    prod-:
+      env: prod
+
+  SourceBranchMap:
+    dev-:
+      Branch: master
+    uat-:
+      Branch: uat--deployment
+    prod-:
+      Branch: prod--deployment
+
+  SourceChangeMap:
+    dev-:
+      Change: true
+    uat-:
+      Change: false
+    prod-:
+      Change: false
+
+Conditions:
+  isDev: !Equals [ !Ref Environment, "dev-" ]
+
+Resources:
+  CoreNetworkConnection:
+    Type: 'AWS::CodeStarConnections::Connection'
+    Properties:
+      ConnectionName: !Sub ${Environment}-Core-Network
+      ProviderType: Bitbucket
+      Tags:
+        - Key: Environment
+          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
+        - Key: Package
+          Value: core-network
+        - Key: Application
+          Value: INFRA
+        - Key: CostCentre
+          Value: 
+
+  CoreNetworkCodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Tags:
+        - Key: Environment
+          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
+        - Key: Package
+          Value: core-network
+        - Key: Application
+          Value: INFRA
+        - Key: CostCentre
+          Value: 
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: !Sub |
+          version: 0.2
+          env:
+            shell: bash
+          phases:
+            install:
+              runtime-versions:
+                python: 3.9
+              commands:
+                - echo Entered the install phase...
+                - pwd
+                - ls -la
+                - pip install boto3
+            pre_build:
+              commands:
+                - export CODEBUILD_BUILD_NUMBER
+                - export CODEBUILD_LOG_PATH
+                - export CODEBUILD_SRC_DIR_SourceArtifact
+            build:
+              commands:
+                - cd templates/core-network/
+                - python3 ../../deploy-scripts/py-scripts/cloudformation/deployer/prepare_template.py -e ${Environment} -r ${Region} -c ../../templates/core-network/config
+          artifacts:
+            files:
+              - '**/*'
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+      Name: -Core-Network #this is the name to reference this project inside the CodePipeline definition
+      ServiceRole:
+        Fn::ImportValue: CodePipelinesRole
+      TimeoutInMinutes: 10
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: -Core-Network-CodeBuild
+
+  CoreNetworkCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Tags:
+        - Key: Environment
+          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
+        - Key: Package
+          Value: core-network
+        - Key: Application
+          Value: INFRA
+        - Key: CostCentre
+          Value: 
+      ArtifactStore:
+        Type: S3
+        Location: !Join [ ".", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, { "Fn::Sub": "${Region}" }, "-deployment" ] ]
+      RestartExecutionOnUpdate:
+        !If [ isDev, "true", "false" ]
+      RoleArn:
+        Fn::ImportValue: CodePipelinesRoleArn
+      Name: -Core-Network
+      Stages:
+        - Name: Source
+          Actions:
+            -
+              Name: Source
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeStarSourceConnection
+              Configuration:
+                ConnectionArn: !Ref CoreNetworkConnection
+                DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
+                BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
+                FullRepositoryId: ironhideETF/mat-infrastructure
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+
+            - Name: Scripts-and-Tags
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeStarSourceConnection
+              Configuration:
+                ConnectionArn: !Ref CoreNetworkConnection
+                DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
+                BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
+                FullRepositoryId: ironhideETF/mat-deployment
+              OutputArtifacts:
+                - Name: Scripts-and-Tags
+              RunOrder: 2
+
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              RunOrder: 1
+              Configuration:
+                PrimarySource: SourceArtifact
+                ProjectName: -Core-Network #reference to the CodeBuild project with this name. Must mach the name of an existing CodeBuild project
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+
+        - Name: VPC
+          Actions:
+            - Name: VPC
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-vpc
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}-vpc_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+        - Name: Network-ACLs
+          Actions:
+            - Name: 1a-network-acl
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-1a-network-acl
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}a-network-acl_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+            - Name: 1b-network-acl
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-1b-network-acl
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}b-network-acl_cloudformation.yaml
+              RunOrder: '2'
+              Region: !Sub ${Region}
+
+        - Name: Subnets
+          Actions:
+            - Name: Subnet1a
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-1a-subnet
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}a-subnet_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+            - Name: Subnet1b
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-1b-subnet
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}b-subnet_cloudformation.yaml
+              RunOrder: '2'
+              Region: !Sub ${Region}
+
+        - Name: NAT-Gateway
+          Actions:
+            - Name: NAT-Gateway
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-1a-natgateway
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}a-natgateway_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+        - Name: Route53-ZoneID
+          Actions:
+            - Name: Route53-ZoneID
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-route53-zoneid
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-zoneid_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+        - Name: Route53
+          Actions:
+            - Name: Route53-Public
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-route53-public
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-public_cloudformation.yaml
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+            - Name: Route53-Private
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: BuildArtifact
+                - Name: Scripts-and-Tags
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: CodePipelinesRoleArn
+                StackName: !Sub ${Environment}-route53-private
+                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplatePath: !Sub BuildArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-private_cloudformation.yaml
+              RunOrder: '2'
+              Region: !Sub ${Region}
