@@ -20,17 +20,10 @@ Parameters:
       - eu-central-2
 
 Mappings:
-  DeploymentEnvironmentMap:
-    dev:
-      env: dev
-    uat:
-      env: uat
-    prod:
-      env: prod
 
   SourceBranchMap:
     dev:
-      Branch: master
+      Branch: dev-deployment
     uat:
       Branch: uat-deployment
     prod:
@@ -55,72 +48,18 @@ Resources:
       ProviderType: Bitbucket
       Tags:
         - Key: Environment
-          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
+          Value: !Sub ${Environment}
         - Key: Package
           Value: core-network
         - Key: Application
           Value: INFRA
 
-
-  AuroraPostgresServerlessV2CodeBuild:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Tags:
-        - Key: Environment
-          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
-        - Key: Package
-          Value: core-network
-        - Key: Application
-          Value: INFRA
-
-      Artifacts:
-        Type: CODEPIPELINE
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: !Sub |
-          version: 0.2
-          env:
-            shell: bash   
-          phases:
-            install:
-              runtime-versions:
-                python: 3.9
-              commands:
-                - echo Entered the install phase...
-                - pwd
-                - ls -la
-                - pip install boto3
-            pre_build:
-              commands:
-                - export CODEBUILD_BUILD_NUMBER
-                - export CODEBUILD_LOG_PATH
-                - export CODEBUILD_SRC_DIR_SourceArtifact
-            build:
-              commands:
-              - cd templates/aurora-postgres-serverless-v2/
-              - python3 ../../deploy-scripts/py-scripts/cloudformation/deployer/prepare_template.py -e ${Environment} -r ${Region} -c ../../templates/aurora-postgres-serverless-v2/config
-          artifacts:
-            files:
-              - '**/*'
-      Environment:
-        Type: LINUX_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
-      Name: Aurora-Postgres-Serverless-V2 #this is the name to reference this project inside the CodePipeline definition
-      ServiceRole:
-        Fn::ImportValue: CodePipelinesRoleAuroraV2Role
-      TimeoutInMinutes: 10
-      LogsConfig:
-        CloudWatchLogs:
-          Status: ENABLED
-          GroupName: Aurora-Postgres-Serverless-V2
-
-  AuroraPostgresServerlessV2CodePipeline:
+  AuroraPostgresServerlessCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       Tags:
         - Key: Environment
-          Value: !Join [ "", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] } ] ]
+          Value: !Sub ${Environment}
         - Key: Package
           Value: core-network
         - Key: Application
@@ -128,11 +67,12 @@ Resources:
 
       ArtifactStore:
         Type: S3
-        Location: !Join [ ".", [ { "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, { "Fn::Sub": "${Region}" }, "deployment" ] ]
+        Location:
+          Fn::ImportValue: !Sub ${Environment}.${AWS::Region}.sergio-project-deployment
       RestartExecutionOnUpdate:
         !If [ isDev, "true", "false" ]
       RoleArn:
-        Fn::ImportValue: CodePipelinesRoleArn
+        Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
       Name: Aurora-Postgres-Serverless-V2
       Stages:
         - Name: Source
@@ -153,21 +93,6 @@ Resources:
                 - Name: SourceArtifact
               RunOrder: 1
 
-            - Name: Scripts-and-Tags
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
-                Version: 1
-                Provider: CodeStarSourceConnection
-              Configuration:
-                ConnectionArn: !Ref AuroraPostgresServerlessV2Connection
-                DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
-                BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
-                FullRepositoryId: ironhideETF/mat-deployment
-              OutputArtifacts:
-                - Name: Scripts-and-Tags
-              RunOrder: 2
-
         - Name: Aurora-Postgres-Serverless-v2
           Actions:
             - Name: Aurora-Postgres-Serverless-v2
@@ -183,31 +108,9 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                 RoleArn:
-                  Fn::ImportValue: CodePipelinesRoleArn
+                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
                 StackName: !Sub ${Environment}-aurora-postgres-serverless-v2
-                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
+                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json" 
                 TemplatePath: !Sub SourceArtifact::templates/aurora-postgresql_cloudformation.yaml
-              RunOrder: 1
-              Region: !Sub ${Region}
-
-        - Name: Database-Users
-          Actions:
-            - Name: Database-Users
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: 1
-              InputArtifacts:
-                - Name: BuildArtifact
-                - Name: Scripts-and-Tags
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
-                RoleArn:
-                  Fn::ImportValue: CodePipelinesRoleArn
-                StackName: !Sub ${Environment}-database-users
-                TemplateConfiguration: !Join [ "", [ "Scripts-and-Tags::TemplateConfiguration/mat-infrastructure/",{ "Fn::FindInMap": [ "DeploymentEnvironmentMap", !Ref Environment, "env" ] }, "/InfrastructureNoTags.json" ] ]
-                TemplatePath: SourceArtifact::templates/aurora-postgresql-users_cloudformation.yaml
               RunOrder: 1
               Region: !Sub ${Region}
