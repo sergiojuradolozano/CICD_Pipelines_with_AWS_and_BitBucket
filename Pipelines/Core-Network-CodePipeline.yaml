@@ -83,9 +83,6 @@ Resources:
         Type: S3
         Location: !Ref DeploymentBucket
 
-      RestartExecutionOnUpdate:
-        !If [ isDev, "true", "false" ]
-
       RoleArn:
         Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
 
