@@ -14,7 +14,6 @@ Parameters:
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - test
     Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
   Network:
@@ -28,7 +27,7 @@ Resources:
     Properties:
       Domain: vpc
 
-  NatGateway:
+  NatGateways:
     Type: AWS::EC2::NatGateway
     DependsOn: ElasticIP
     Properties:
@@ -47,5 +46,5 @@ Resources:
         Fn::ImportValue: 
           !Sub "${Environment}InternalSubnetRouteTable-${Region}a"
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
+      NatGatewayId: !Ref NatGateways
 
