@@ -14,7 +14,7 @@ Parameters:
     Default: us-east-1
     AllowedValues:
       - us-east-1
-    Description: This is value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
   Network:
     Type: String
