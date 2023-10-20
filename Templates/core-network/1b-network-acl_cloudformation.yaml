@@ -16,6 +16,10 @@ Parameters:
       - us-east-1
     Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
+  Network:
+    Type: String
+    Default: 10.160
+    Description: This value will be replace by the value of the TemplateConfiguration file
 
 Resources:
   InternalSubnetACL:
