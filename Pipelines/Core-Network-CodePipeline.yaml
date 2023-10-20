@@ -28,11 +28,11 @@ Mappings:
 
   SourceChangeMap:
     dev:
-      Change: true
+      Change: "true"
     uat:
-      Change: false
+      Change: "false"
     prod:
-      Change: false
+      Change: "false"
 
 Conditions:
   isDev: !Equals [ !Ref Environment, "dev" ]
