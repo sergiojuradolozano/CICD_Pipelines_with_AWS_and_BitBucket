@@ -8,15 +8,14 @@ Parameters:
       - uat
       - prod
     Description: Enter dev, uat or prod. Default is dev
+
   Region:
     Type: String
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
-    Description: 'This value will be replace by the value of the TemplateConfiguration file'
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+
 
 Resources:
   ElasticIP:

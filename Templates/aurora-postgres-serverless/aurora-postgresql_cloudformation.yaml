@@ -15,10 +15,8 @@ Parameters:
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
-    Description: 'This value will be replace by the value of the TemplateConfiguration file'
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+
   DbMasterUser:
     Type: String
     Default: admin
@@ -81,7 +79,7 @@ Resources:
   AuroraPostgresqlRotationSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub ${Environment}admin-database-credentials
+      Name: !Sub "${Environment}admin-database-credentials"
       Description: Aurora PostgreSQL database credentials
       GenerateSecretString:
         SecretStringTemplate: !Join ['', ['{"username": "', !FindInMap [DatabaseMasterUserNameMap, !Ref Environment, name], '"}' ]]
@@ -103,7 +101,7 @@ Resources:
       SecretId: !Ref AuroraPostgresqlRotationSecret
       HostedRotationLambda:
         RotationType: "PostgreSQLSingleUser"
-        RotationLambdaName: !Sub ${Environment}-SecretsManagerRotation
+        RotationLambdaName: !Sub "${Environment}-SecretsManagerRotation"
         VpcSecurityGroupIds: !Ref AuroraPostgresqlSecurityGroup
         VpcSubnetIds:
           Fn::Join:
@@ -148,7 +146,7 @@ Resources:
     Description:  aurora postgres cluster
     Properties:
       EnableHttpEndpoint: !If [isProd, false, true]
-      DBClusterIdentifier: !Sub ${Environment}-aurora-postgresql-serverless-db-cluster
+      DBClusterIdentifier: !Sub "${Environment}-aurora-postgresql-serverless-db-cluster"
       Engine: aurora-postgresql
       EngineVersion: 14.6
       BackupRetentionPeriod: !If [isProd, 35, 2]
@@ -170,7 +168,7 @@ Resources:
       VpcId:
          Fn::ImportValue:
           !Sub "${Environment}VPC-${AWS::Region}"
-      GroupName: !Sub ${Environment}-services-vpc-rds-access
+      GroupName: !Sub "${Environment}-services-vpc-rds-access"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
@@ -194,6 +192,6 @@ Resources:
         - Fn::ImportValue:
             !Sub "${Environment}InternalSubnet-${Region}b"
       DBSubnetGroupDescription: serverless cluster subnet group
-      DBSubnetGroupName: !Sub ${Environment}-rds-serverless-subnet-group
+      DBSubnetGroupName: !Sub "${Environment}-rds-serverless-subnet-group"
 
 
