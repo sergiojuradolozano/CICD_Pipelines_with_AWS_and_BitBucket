@@ -31,7 +31,7 @@ Mappings:
       Change: true
     uat:
       Change: false
-    prod-:
+    prod:
       Change: false
 
 Conditions:
@@ -127,7 +127,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-vpc"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}-vpc_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/vpc_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
 
@@ -148,7 +148,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-1a-network-acl"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-network-acl_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1a-network-acl_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
               
@@ -167,7 +167,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-1b-network-acl"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}b-network-acl_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1b-network-acl_cloudformation.yaml"
               RunOrder: '2'
               Region: !Sub ${Region}
 
@@ -188,7 +188,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-1a-subnet"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-subnet_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1a-subnet_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
 
@@ -207,7 +207,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-1b-subnet"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub "SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}b-subnet_cloudformation.yaml"
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1b-subnet_cloudformation.yaml"
               RunOrder: '2'
               Region: !Sub "${Region}"
 
@@ -228,7 +228,7 @@ Resources:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
                 StackName: !Sub "${Environment}-1a-natgateway"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub "SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-natgateway_cloudformation.yaml"
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1a-natgateway_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
 
