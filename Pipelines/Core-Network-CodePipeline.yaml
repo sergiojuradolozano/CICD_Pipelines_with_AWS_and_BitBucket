@@ -1,70 +1,67 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Deploy -Core-Network CodePipeline"
+Description: "Deploy Core-Network CodePipeline"
 Parameters:
   Environment:
     Type: String
-    Default: dev-
+    Default: dev
     AllowedValues:
-      - dev-
-      - uat-
-      - prod-
-    Description: Enter dev-, uat- or prod-. Default is dev-
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
 
   Region:
     Type: String
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
 Mappings:
-  DeploymentEnvironmentMap:
-    dev-:
-      env: dev
-    uat-:
-      env: uat
-    prod-:
-      env: prod
-
   SourceBranchMap:
-    dev-:
-      Branch: master
-    uat-:
-      Branch: uat--deployment
+    dev:
+      Branch: dev-deployment
+    uat:
+      Branch: uat-deployment
     prod-:
-      Branch: prod--deployment
+      Branch: prod-deployment
 
   SourceChangeMap:
-    dev-:
+    dev:
       Change: true
-    uat-:
+    uat:
       Change: false
     prod-:
       Change: false
 
 Conditions:
-  isDev: !Equals [ !Ref Environment, "dev-" ]
+  isDev: !Equals [ !Ref Environment, "dev" ]
 
 Resources:
 
   DeploymentBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub ${Environment}.${AWS::Region}.sergio-project-deployment
+      BucketName: !Sub "${Environment}-${Region}-sergio-project-deployment"
       AccessControl: Private
       VersioningConfiguration:
         Status: Enabled
+      Tags:
+        - Key: Environment
+          Value: !Sub "${Environment}"
+        - Key: Package
+          Value: core-network
+        - Key: Application
+          Value: INFRA
 
   CoreNetworkConnection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
-      ConnectionName: !Sub ${Environment}-Core-Network
+      ConnectionName: !Sub "${Environment}-Core-Network"
       ProviderType: Bitbucket
       Tags:
         - Key: Environment
-          Value: !Sub ${Environment}
+          Value: !Sub "${Environment}"
         - Key: Package
           Value: core-network
         - Key: Application
@@ -76,7 +73,7 @@ Resources:
     Properties:
       Tags:
         - Key: Environment
-          Value: !Sub ${Environment}
+          Value: !Sub "${Environment}"
         - Key: Package
           Value: core-network
         - Key: Application
@@ -84,15 +81,15 @@ Resources:
 
       ArtifactStore:
         Type: S3
-        Location: !GetAtt DeploymentBucket.Arn
+        Location: !Ref DeploymentBucket
 
       RestartExecutionOnUpdate:
         !If [ isDev, "true", "false" ]
 
       RoleArn:
-        Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
+        Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
 
-      Name: -Core-Network
+      Name: Core-Network
       
       Stages:
         - Name: Source
@@ -127,8 +124,8 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-vpc
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-vpc"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
                 TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}-vpc_cloudformation.yaml
               RunOrder: 1
@@ -148,8 +145,8 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-1a-network-acl
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1a-network-acl"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
                 TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-network-acl_cloudformation.yaml
               RunOrder: 1
@@ -167,8 +164,8 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-1b-network-acl
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1b-network-acl"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
                 TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}b-network-acl_cloudformation.yaml
               RunOrder: '2'
@@ -188,8 +185,8 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-1a-subnet
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1a-subnet"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
                 TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-subnet_cloudformation.yaml
               RunOrder: 1
@@ -207,12 +204,12 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-1b-subnet
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1b-subnet"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}b-subnet_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}b-subnet_cloudformation.yaml"
               RunOrder: '2'
-              Region: !Sub ${Region}
+              Region: !Sub "${Region}"
 
         - Name: NAT-Gateway
           Actions:
@@ -228,76 +225,15 @@ Resources:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-1a-natgateway
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1a-natgateway"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-natgateway_cloudformation.yaml
+                TemplatePath: !Sub "SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}a-natgateway_cloudformation.yaml"
               RunOrder: 1
-              Region: !Sub ${Region}
-
-        - Name: Route53-ZoneID
-          Actions:
-            - Name: Route53-ZoneID
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: 1
-              InputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-                RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-route53-zoneid
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-zoneid_cloudformation.yaml
-              RunOrder: 1
-              Region: !Sub ${Region}
-
-        - Name: Route53
-          Actions:
-            - Name: Route53-Public
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: 1
-              InputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-                RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-route53-public
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-public_cloudformation.yaml
-              RunOrder: 1
-              Region: !Sub ${Region}
-
-            - Name: Route53-Private
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Provider: CloudFormation
-                Version: 1
-              InputArtifacts:
-                - Name: SourceArtifact
-              Configuration:
-                ActionMode: CREATE_UPDATE
-                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
-                RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-route53-private
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub SourceArtifact::templates/core-network/resource-templates/core-network/-${Region}-route53-private_cloudformation.yaml
-              RunOrder: '2'
               Region: !Sub ${Region}
 
 Outputs:
   DeploymentBucket:
-    Value: !GetAtt DeploymentBucket.Arn
+    Value: !Ref DeploymentBucket
     Export:
-      Name: !Sub ${Environment}.${AWS::Region}.sergio-project-deployment
+      Name: !Sub "${Environment}-${Region}-sergio-project-deployment"
