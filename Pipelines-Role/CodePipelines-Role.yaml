@@ -170,6 +170,8 @@ Resources:
             Resource:
               - !Sub arn:aws:s3:::codepipeline-${Region}-*
               - arn:aws:s3:::secrets-manager-rotation-apps-*
+              - !Sub "arn:aws:s3:::${Environment}-${Region}-sergio-project-deploymen*"
+
 
 
           - Sid: logs
