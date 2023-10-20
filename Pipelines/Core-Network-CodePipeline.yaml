@@ -78,16 +78,15 @@ Resources:
           Value: core-network
         - Key: Application
           Value: INFRA
-
       ArtifactStore:
         Type: S3
         Location: !Ref DeploymentBucket
-
+      RestartExecutionOnUpdate:
+        !If [ isDev, true, false ]
       RoleArn:
         Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
-
       Name: Core-Network
-      
+
       Stages:
         - Name: Source
           Actions:
@@ -100,7 +99,7 @@ Resources:
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: !Ref CoreNetworkConnection
-                DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
+                DetectChanges: !If [ isDev, true, false ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
                 FullRepositoryId: projectsergio/CI-CD_with_AWS
               OutputArtifacts:
