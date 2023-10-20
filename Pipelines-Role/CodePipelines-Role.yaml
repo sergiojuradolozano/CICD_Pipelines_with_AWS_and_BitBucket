@@ -9,14 +9,13 @@ Parameters:
       - uat
       - prod
     Description: Enter dev, uat or prod. Default is dev
+
   Region:
     Type: String
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
 Resources:
   CodePipelinesRole:
@@ -182,7 +181,7 @@ Resources:
             Resource:
               - !Sub arn:aws:logs:${Region}:${AWS::AccountId}:log-group:*
 
-          - Sid: Secrets Manager
+          - Sid: SecretsManager
             Effect: Allow
             Action:
               - secretsmanager:Describe*
@@ -226,10 +225,10 @@ Outputs:
   CodePipelinesRole:
     Value: !Ref CodePipelinesRole
     Export:
-      Name: !Sub ${Environment}-CodePipelines-Role
+      Name: !Sub "${Environment}-CodePipelines-Role"
 
   CodePipelinesRoleArn:
     Description: "ARN of CodePipelines-Role"
     Value: !GetAtt CodePipelinesRole.Arn
     Export:
-      Name: !Sub ${Environment}-CodePipelines-Role-Arn
+      Name: !Sub "${Environment}-CodePipelines-Role-Arn"
