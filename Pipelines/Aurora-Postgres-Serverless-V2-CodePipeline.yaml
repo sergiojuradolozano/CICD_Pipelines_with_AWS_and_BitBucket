@@ -85,7 +85,7 @@ Resources:
                 ConnectionArn: !Ref AuroraPostgresServerlessV2Connection
                 DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
-                FullRepositoryId: Project/ci-cd_with_aws
+                FullRepositoryId: Project/CI-CD_with_AWS
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
