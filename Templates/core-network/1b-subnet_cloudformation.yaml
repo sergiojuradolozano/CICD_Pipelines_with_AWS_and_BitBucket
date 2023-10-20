@@ -118,7 +118,7 @@ Outputs:
   primaryInternalSubnet: 
     Value: !Ref InternalSubnet
     Export:
-      Name: !Sub "${Environment}-primaryInternalSubnet-${AWS::Region}"
+      Name: !Sub "${Environment}-primaryInternalSubnet-${AWS::Region}b"
 
   DmzSubnet: 
     Value: !Ref DmzSubnet
