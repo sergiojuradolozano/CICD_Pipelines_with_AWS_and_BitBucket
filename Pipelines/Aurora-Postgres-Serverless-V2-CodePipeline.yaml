@@ -10,22 +10,19 @@ Parameters:
       - prod
     Description: Enter dev, uat or prod. Default is dev
 
-  Region: # The region value in --parameter-overrides from the the cli scripts need to be one of the Allowed values. If you will deploy the stacks in a different region add it to the list and it will overwrite the default value with the one from the cli script.
+  Region:
     Type: String
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
 Mappings:
-
   SourceBranchMap:
     dev:
       Branch: dev-deployment
     uat:
-      Branch: uat-deployment
+      Branch: dev-deployment
     prod:
       Branch: prod-deployment
 
@@ -44,11 +41,11 @@ Resources:
   AuroraPostgresServerlessV2Connection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
-      ConnectionName: !Sub ${Environment}-Aurora-Postgres
+      ConnectionName: !Sub "${Environment}-Aurora-Postgres"
       ProviderType: Bitbucket
       Tags:
         - Key: Environment
-          Value: !Sub ${Environment}
+          Value: !Sub "${Environment}"
         - Key: Package
           Value: core-network
         - Key: Application
@@ -59,7 +56,7 @@ Resources:
     Properties:
       Tags:
         - Key: Environment
-          Value: !Sub ${Environment}
+          Value: !Sub "${Environment}"
         - Key: Package
           Value: core-network
         - Key: Application
@@ -68,11 +65,11 @@ Resources:
       ArtifactStore:
         Type: S3
         Location:
-          Fn::ImportValue: !Sub ${Environment}.${AWS::Region}.sergio-project-deployment
+          Fn::ImportValue: !Sub "${Environment}-${Region}-sergio-project-deployment"
       RestartExecutionOnUpdate:
         !If [ isDev, "true", "false" ]
       RoleArn:
-        Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
+        Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
       Name: Aurora-Postgres-Serverless-V2
       Stages:
         - Name: Source
@@ -88,7 +85,7 @@ Resources:
                 ConnectionArn: !Ref AuroraPostgresServerlessV2Connection
                 DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
-                FullRepositoryId: ironhideETF/mat-infrastructure
+                FullRepositoryId: Project/ci-cd_with_aws
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
@@ -102,15 +99,14 @@ Resources:
                 Provider: CloudFormation
                 Version: 1
               InputArtifacts:
-                - Name: BuildArtifact
-                - Name: Scripts-and-Tags
+                - Name: SourceArtifact
               Configuration:
                 ActionMode: CREATE_UPDATE
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
                 RoleArn:
-                  Fn::ImportValue: !Sub ${Environment}-CodePipelines-Role-Arn
-                StackName: !Sub ${Environment}-aurora-postgres-serverless-v2
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json" 
-                TemplatePath: !Sub SourceArtifact::templates/aurora-postgresql_cloudformation.yaml
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-aurora-postgres-serverless-v2"
+                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
+                TemplatePath: !Sub "SourceArtifact::templates/aurora-postgresql_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
