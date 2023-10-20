@@ -8,18 +8,13 @@ Parameters:
       - uat
       - prod
     Description: Enter dev, uat or prod. Default is dev
+
   Region:
     Type: String
     Default: us-east-1
     AllowedValues:
       - us-east-1
-      - eu-west-1
-      - eu-central-1
-      - eu-central-2
-    Description: 'This value will be replace by the value of the TemplateConfiguration file'
-
-Conditions:
-  isLocalPrimaryZone: !Equals [!Sub "${Region}a", "${Region}b"]
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
 Resources:
   DmzSubnet:
@@ -39,7 +34,7 @@ Resources:
     Properties: 
       VpcId: 
         Fn::ImportValue: 
-          !Sub "${Environment}VPC-${AWS::Region}" 
+          !Sub "${Environment}VPC-${AWS::Region}"
       Tags: 
         - Key: "Name"
           Value: " DMZ"
@@ -117,7 +112,6 @@ Outputs:
 
   primaryInternalSubnet: 
     Value: !Ref InternalSubnet
-    Condition: isLocalPrimaryZone
     Export:
       Name: !Sub "${Environment}-primaryInternalSubnet-${AWS::Region}"
 
