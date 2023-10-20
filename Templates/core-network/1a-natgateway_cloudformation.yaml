@@ -27,7 +27,7 @@ Resources:
     Properties:
       Domain: vpc
 
-  NatGateways:
+  NatGateway:
     Type: AWS::EC2::NatGateway
     DependsOn: ElasticIP
     Properties:
@@ -46,5 +46,5 @@ Resources:
         Fn::ImportValue: 
           !Sub "${Environment}InternalSubnetRouteTable-${Region}a"
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateways
+      NatGatewayId: !Ref NatGateway
 
