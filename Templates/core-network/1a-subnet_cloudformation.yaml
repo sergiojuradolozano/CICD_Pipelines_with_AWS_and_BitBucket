@@ -16,11 +16,16 @@ Parameters:
       - us-east-1
     Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
+  Network:
+    Type: String
+    Default: 10.160
+    Description: This value will be replace by the value of the TemplateConfiguration file
+
 Resources:
   DmzSubnet:
     Type: AWS::EC2::Subnet
     Properties: 
-      CidrBlock: "10.160.1.0/24"
+      CidrBlock: !Sub "${Network}.1.0/24"
       AvailabilityZone: !Sub "${Region}a"
       VpcId: 
         Fn::ImportValue: 
@@ -55,7 +60,7 @@ Resources:
       SubnetId: !Ref DmzSubnet
            
        
-  DmzSubnetACLAssocitaion: 
+  DmzSubnetACLAssociation:
     Type: AWS::EC2::SubnetNetworkAclAssociation
     Properties: 
       NetworkAclId: 
@@ -66,11 +71,11 @@ Resources:
   InternalSubnet:
     Type: AWS::EC2::Subnet
     Properties: 
-      CidrBlock: "10.160.10.0/24"
+      CidrBlock: !Sub "${Network}.10.0/24"
       AvailabilityZone: !Sub "${Region}a"
       VpcId: 
         Fn::ImportValue: 
-          !Sub "${Environment}VPC-${AWS::Region}" 
+          !Sub "${Environment}VPC-${AWS::Region}"
       Tags:
       - Key: "Name"
         Value: !Sub "Internal ${Region}a"
@@ -83,7 +88,7 @@ Resources:
           !Sub "${Environment}VPC-${AWS::Region}" 
       Tags:
       - Key: "Name"
-        Value: " Internal"
+        Value: "Internal Route Table"
         
   InternalSubnetRouteTableAssociaton: 
     Type: AWS::EC2::SubnetRouteTableAssociation
