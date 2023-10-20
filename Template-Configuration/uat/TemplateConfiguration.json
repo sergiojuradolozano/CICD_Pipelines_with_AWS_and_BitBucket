@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "Environment" : "uat",
-    "CidrBlock" : "10.170.0.0/16"
+    "Network" : "10.170"
   },
 
   "Tags":

@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "Environment" : "dev",
-    "CidrBlock" : "10.160.0.0/16"
+    "Network" : "10.160"
   },
 
     "Tags":
