@@ -198,6 +198,9 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           CidrIp: !Sub ${Network}.0.0/16
+      Tags:
+        - Key: "Name"
+          Value: "Internal network access to rds database"
 
   AuroraRdsIngressSelfReference:
     Type: AWS::EC2::SecurityGroupIngress
