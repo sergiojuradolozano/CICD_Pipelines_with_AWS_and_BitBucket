@@ -164,7 +164,7 @@ Resources:
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref AuroraPostgresqlCluster
       DBInstanceClass: !Ref DbInstanceClass
-      AvailabilityZone: eu-central-1a
+      AvailabilityZone: !Sub "${Region}a"
       DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
       DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-a
       DBSubnetGroupName: !Ref DbSubNetGroup
@@ -178,7 +178,7 @@ Resources:
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref AuroraPostgresqlCluster
       DBInstanceClass: !Ref DbInstanceClass
-      AvailabilityZone: eu-central-1b
+      AvailabilityZone: !Sub "${Region}a"
       DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
       DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-b
       DBSubnetGroupName: !Ref DbSubNetGroup
