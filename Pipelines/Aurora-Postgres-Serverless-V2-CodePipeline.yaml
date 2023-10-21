@@ -65,7 +65,7 @@ Resources:
       ArtifactStore:
         Type: S3
         Location:
-          Fn::ImportValue: !Sub "${Environment}-${Region}-sergio-project-deployment"
+          Fn::ImportValue: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
       RestartExecutionOnUpdate:
         !If [ isDev, "true", "false" ]
       RoleArn:
