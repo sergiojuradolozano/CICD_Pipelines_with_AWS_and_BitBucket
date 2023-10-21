@@ -194,9 +194,9 @@ Resources:
               - secretsmanager:CancelRotateSecret
               - secretsmanager:ListSecrets
               - secretsmanager:UpdateSecretVersionStage
+              - secretsmanager:GetSecretValue
 
-            Resource:
-              - !Sub arn:aws:secretsmanager:${Region}:${AWS::AccountId}:secret:*
+            Resource: "*"
 
           - Sid: rds
             Effect: Allow
