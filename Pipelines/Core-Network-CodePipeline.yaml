@@ -81,7 +81,6 @@ Resources:
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: !Ref CoreNetworkConnection
-                DetectChanges: !If [ isDev, true, false ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
                 FullRepositoryId: projectsergio/CI-CD_with_AWS
               OutputArtifacts:
