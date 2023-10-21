@@ -38,6 +38,7 @@ Conditions:
   isDev: !Equals [ !Ref Environment, "dev" ]
 
 Resources:
+
   CoreNetworkConnection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
@@ -65,6 +66,8 @@ Resources:
         Type: S3
         Location:
           Fn::ImportValue: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
+      RestartExecutionOnUpdate:
+        !If [ isDev, true, false ]
       RoleArn:
         Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
       Name: Core-Network
@@ -81,6 +84,7 @@ Resources:
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: !Ref CoreNetworkConnection
+                DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
                 FullRepositoryId: projectsergio/CI-CD_with_AWS
               OutputArtifacts:
