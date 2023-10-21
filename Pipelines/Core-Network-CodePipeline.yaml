@@ -23,7 +23,7 @@ Mappings:
       Branch: dev-deployment
     uat:
       Branch: uat-deployment
-    prod-:
+    prod:
       Branch: prod-deployment
 
   SourceChangeMap:
@@ -38,7 +38,6 @@ Conditions:
   isDev: !Equals [ !Ref Environment, "dev" ]
 
 Resources:
-
   CoreNetworkConnection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
@@ -86,7 +85,7 @@ Resources:
                 ConnectionArn: !Ref CoreNetworkConnection
                 DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
-                FullRepositoryId: projectsergio/CI-CD_with_AWS
+                FullRepositoryId: projectsergio/ci-cd_with_aws
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
