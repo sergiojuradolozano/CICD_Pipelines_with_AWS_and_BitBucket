@@ -15,7 +15,7 @@ Parameters:
     Default: us-east-1
     AllowedValues:
       - us-east-1
-    Description: Thisvalue will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
 
 Mappings:
   SourceBranchMap:
@@ -82,7 +82,7 @@ Resources:
               Configuration:
                 ConnectionArn: !Ref CoreNetworkConnection
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
-                FullRepositoryId: projectsergio/CI-CD_with_AWS
+                FullRepositoryId: projectsergio/ci-cd_with_aws
               OutputArtifacts:
                 - Name: SourceArtifact
               RunOrder: 1
