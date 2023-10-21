@@ -216,6 +216,7 @@ Resources:
               - rds:ModifyDBCluster
               - rds:DeleteDBCluster
               - rds:Describe*
+              - rds:DeleteDBInstance
             Resource: '*'
 
       Roles:
