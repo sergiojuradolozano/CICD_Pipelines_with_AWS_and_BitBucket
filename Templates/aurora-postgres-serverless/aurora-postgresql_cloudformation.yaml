@@ -156,6 +156,34 @@ Resources:
         MinCapacity: !If [isProd, 8, 0.5]
         MaxCapacity: !If [isProd, 16, 4]
 
+  DBInstanceA:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref AuroraPostgresqlCluster
+      DBInstanceClass: !Ref DbInstanceClass
+      AvailabilityZone: eu-central-1a
+      DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
+      DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-a
+      DBSubnetGroupName: !Ref DbSubNetGroup
+      Engine: !FindInMap [ EngineMap, !Ref DbEngine, Engine ]
+
+  DBInstanceB:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref AuroraPostgresqlCluster
+      DBInstanceClass: !Ref DbInstanceClass
+      AvailabilityZone: eu-central-1b
+      DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
+      DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-b
+      DBSubnetGroupName: !Ref DbSubNetGroup
+      Engine: !FindInMap [ EngineMap, !Ref DbEngine, Engine ]
+
   AuroraPostgresqlSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Description: Internal network access to rds database
