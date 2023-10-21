@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploy Core-Network CodePipeline"
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+
+Resources:
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Environment
+          Value: !Sub "${Environment}"
+        - Key: Package
+          Value: core-network
+        - Key: Application
+          Value: INFRA
+
+Outputs:
+  DeploymentBucket:
+    Value: !Ref DeploymentBucket
+    Export:
+      Name: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
