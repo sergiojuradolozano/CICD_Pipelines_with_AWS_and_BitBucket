@@ -193,7 +193,7 @@ Resources:
 
         - Name: NAT-Gateway
           Actions:
-            - Name: NAT-Gateway
+            - Name: 1a-natgateway
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -209,5 +209,24 @@ Resources:
                 StackName: !Sub "${Environment}-1a-natgateway"
                 TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
                 TemplatePath: !Sub "SourceArtifact::Templates/core-network/1a-natgateway_cloudformation.yaml"
+              RunOrder: 1
+              Region: !Sub ${Region}
+
+            - Name: 1b-natgateway
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CloudFormation
+                Version: 1
+              InputArtifacts:
+                - Name: SourceArtifact
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
+                RoleArn:
+                  Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
+                StackName: !Sub "${Environment}-1b-natgateway"
+                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
+                TemplatePath: !Sub "SourceArtifact::Templates/core-network/1b-natgateway_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
