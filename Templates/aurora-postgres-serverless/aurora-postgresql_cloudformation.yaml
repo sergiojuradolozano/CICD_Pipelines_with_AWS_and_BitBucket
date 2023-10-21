@@ -16,38 +16,33 @@ Parameters:
     AllowedValues:
       - us-east-1
     Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
-
   DbMasterUser:
     Type: String
     Default: admin
     Description: db master user
-
-  CidrBlock:
+  Network:
     Type: String
-    Default: 10.160.0.0/16
-    Description: 'This value will be replace by the value of the TemplateConfiguration file'
-
+    Default: 10.160
+    Description: This value will be replace by the value of the TemplateConfiguration file
   DbEngine:
     Type: String
     Default: aurora-postgresql-14.6
     Description: "Aurora engine and version"
-
   DbSnapshotIdentifier:
     Description: 'Optional identifier for the DB cluster snapshot from which you want to restore (leave blank to create an empty cluster).'
     Type: String
     Default: ''
-
   DbInstanceClass:
     Description: 'The instance type of database server (see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html).'
     Type: String
     Default: db.t3.medium
-
   DbBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the cluster.'
     Type: Number
     MinValue: 1
     MaxValue: 35
     Default: 30
+
 Mappings:
   DatabaseNameMap:
     dev:
@@ -173,7 +168,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: !Ref CidrBlock
+          CidrIp: !Sub ${Network}.0.0/16
 
   AuroraRdsIngressSelfReference:
     Type: AWS::EC2::SecurityGroupIngress
