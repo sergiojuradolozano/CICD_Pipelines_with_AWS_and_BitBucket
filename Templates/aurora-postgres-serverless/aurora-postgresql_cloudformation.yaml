@@ -144,6 +144,7 @@ Resources:
       DBClusterIdentifier: !Sub "${Environment}-aurora-postgresql-serverless-db-cluster"
       Engine: aurora-postgresql
       EngineVersion: 14.6
+      Port: 5432
       BackupRetentionPeriod: !If [isProd, 35, 2]
       VpcSecurityGroupIds: [!Ref AuroraPostgresqlSecurityGroup]
       DatabaseName: !FindInMap [DatabaseNameMap, !Ref Environment, name]
