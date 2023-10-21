@@ -23,8 +23,6 @@ Resources:
     Properties:
       BucketName: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
       AccessControl: Private
-      VersioningConfiguration:
-        Status: Enabled
       Tags:
         - Key: Environment
           Value: !Sub "${Environment}"
