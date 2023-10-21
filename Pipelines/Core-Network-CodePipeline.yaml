@@ -28,32 +28,16 @@ Mappings:
 
   SourceChangeMap:
     dev:
-      Change: "true"
+      Change: true
     uat:
-      Change: "false"
+      Change: false
     prod:
-      Change: "false"
+      Change: false
 
 Conditions:
   isDev: !Equals [ !Ref Environment, "dev" ]
 
 Resources:
-
-  DeploymentBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${Environment}-${Region}-sergio-project-deployment"
-      AccessControl: Private
-      VersioningConfiguration:
-        Status: Enabled
-      Tags:
-        - Key: Environment
-          Value: !Sub "${Environment}"
-        - Key: Package
-          Value: core-network
-        - Key: Application
-          Value: INFRA
-
   CoreNetworkConnection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
@@ -69,7 +53,6 @@ Resources:
 
   CoreNetworkCodePipeline:
     Type: AWS::CodePipeline::Pipeline
-    DependsOn: DeploymentBucket
     Properties:
       Tags:
         - Key: Environment
@@ -80,9 +63,8 @@ Resources:
           Value: INFRA
       ArtifactStore:
         Type: S3
-        Location: !Ref DeploymentBucket
-      RestartExecutionOnUpdate:
-        !If [ isDev, true, false ]
+        Location:
+          Fn::ImportValue: !Sub "${Environment}-${Region}-sergio-codepipelines-project-deployment"
       RoleArn:
         Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
       Name: Core-Network
@@ -227,9 +209,3 @@ Resources:
                 TemplatePath: !Sub "SourceArtifact::Templates/core-network/1a-natgateway_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
-
-Outputs:
-  DeploymentBucket:
-    Value: !Ref DeploymentBucket
-    Export:
-      Name: !Sub "${Environment}-${Region}-sergio-project-deployment"
