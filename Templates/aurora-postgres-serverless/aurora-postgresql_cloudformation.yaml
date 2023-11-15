@@ -143,6 +143,9 @@ Resources:
       EnableHttpEndpoint: !If [isProd, false, true]
       DBClusterIdentifier: !Sub "${Environment}-aurora-postgresql-serverless-db-cluster"
       Engine: aurora-postgresql
+      AvailabilityZones:
+        - us-east-1a
+        - us-east-1b
       EngineVersion: 14.6
       Port: 5432
       BackupRetentionPeriod: !If [isProd, 35, 2]
@@ -190,7 +193,7 @@ Resources:
     Properties:
       GroupDescription: Internal network access to rds database
       VpcId:
-         Fn::ImportValue:
+        Fn::ImportValue:
           !Sub "${Environment}VPC-${AWS::Region}"
       GroupName: !Sub "${Environment}-services-vpc-rds-access"
       SecurityGroupIngress:
