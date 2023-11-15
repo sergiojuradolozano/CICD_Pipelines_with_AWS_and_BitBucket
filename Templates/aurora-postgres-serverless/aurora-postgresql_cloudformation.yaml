@@ -35,7 +35,7 @@ Parameters:
   DbInstanceClass:
     Description: 'The instance type of database server (see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html).'
     Type: String
-    Default: db.t3.medium
+    Default: db.serverless
   DbBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the cluster.'
     Type: Number
@@ -156,8 +156,8 @@ Resources:
       MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref AuroraPostgresqlRotationSecret, ':SecretString:username}}' ]]
       MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref AuroraPostgresqlRotationSecret, ':SecretString:password}}' ]]
       ServerlessV2ScalingConfiguration:
-        MinCapacity: !If [isProd, 8, 0.5]
-        MaxCapacity: !If [isProd, 16, 4]
+        MinCapacity: !If [isProd, 8, 4]
+        MaxCapacity: !If [isProd, 32, 16]
 
   DBInstanceA:
     Type: 'AWS::RDS::DBInstance'
@@ -166,8 +166,8 @@ Resources:
       AutoMinorVersionUpgrade: true
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref AuroraPostgresqlCluster
+      MultiAZ: true
       DBInstanceClass: !Ref DbInstanceClass
-      AvailabilityZone: !Sub "${Region}a"
       DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
       DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-a
       DBSubnetGroupName: !Ref DbSubNetGroup
@@ -181,7 +181,6 @@ Resources:
       CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref AuroraPostgresqlCluster
       DBInstanceClass: !Ref DbInstanceClass
-      AvailabilityZone: !Sub "${Region}a"
       DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
       DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-b
       DBSubnetGroupName: !Ref DbSubNetGroup
