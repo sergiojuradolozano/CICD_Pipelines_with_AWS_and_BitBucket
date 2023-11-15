@@ -217,6 +217,7 @@ Resources:
               - rds:DeleteDBCluster
               - rds:Describe*
               - rds:DeleteDBInstance
+              - rds:AddTagsToResource
             Resource: '*'
 
       Roles:
