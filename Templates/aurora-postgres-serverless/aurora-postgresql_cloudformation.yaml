@@ -35,7 +35,7 @@ Parameters:
   DbInstanceClass:
     Description: 'The instance type of database server (see https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.DBInstanceClass.html).'
     Type: String
-    Default: db.serverless
+    Default: db.t3.medium
   DbBackupRetentionPeriod:
     Description: 'The number of days to keep snapshots of the cluster.'
     Type: Number
@@ -108,30 +108,81 @@ Resources:
       RotationRules:
         AutomaticallyAfterDays: 30
 
+  AuroraPostgresqlParameterGroup:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      DBParameterGroupName: 'default-aurora-postgresql14'
+      Description: !Ref 'AWS::StackName'
+      Family: !FindInMap [ EngineMap, !Ref DbEngine, ClusterParameterGroupFamily ]
+      Parameters:
+        apg_plan_mgmt.capture_plan_baselines: "off"
+        apg_plan_mgmt.max_databases: 10
+        apg_plan_mgmt.max_plans: 1000
+        apg_plan_mgmt.plan_retention_period: 32
+        apg_plan_mgmt.unapproved_plan_execution_threshold: 0
+        apg_plan_mgmt.use_plan_baselines: false
+
+  AuroraPostgresqlClusterParameterGroup:
+    Type: 'AWS::RDS::DBClusterParameterGroup'
+    Properties:
+      Description: !Ref 'AWS::StackName'
+      Family: !FindInMap [ EngineMap, !Ref DbEngine, ClusterParameterGroupFamily ]
+      Parameters:
+        apg_plan_mgmt.capture_plan_baselines: "off"
+        apg_plan_mgmt.max_databases: 10
+        apg_plan_mgmt.max_plans: 1000
+        apg_plan_mgmt.plan_retention_period: 32
+        apg_plan_mgmt.unapproved_plan_execution_threshold: 0
+        apg_plan_mgmt.use_plan_baselines: false
+
   AuroraPostgresqlCluster:
     Type: AWS::RDS::DBCluster
+    DependsOn: AuroraPostgresqlClusterParameterGroup
     Description:  aurora postgres cluster
     Properties:
-      DBClusterIdentifier: !Sub "${Environment}-aurora-postgresql-serverless-db-cluster"
+      EnableHttpEndpoint: !If [isProd, false, true]
+      DBClusterIdentifier: !Sub "${Environment}-aurora-postgresql-db-cluster"
       Engine: aurora-postgresql
       EngineVersion: 14.6
       Port: 5432
       BackupRetentionPeriod: !If [isProd, 35, 2]
       VpcSecurityGroupIds: [!Ref AuroraPostgresqlSecurityGroup]
       DatabaseName: !FindInMap [DatabaseNameMap, !Ref Environment, name]
+      DBClusterParameterGroupName: !Ref AuroraPostgresqlClusterParameterGroup
       DBSubnetGroupName: !Ref DbSubNetGroup
       MasterUsername: !Join ['', ['{{resolve:secretsmanager:', !Ref AuroraPostgresqlRotationSecret, ':SecretString:username}}' ]]
       MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref AuroraPostgresqlRotationSecret, ':SecretString:password}}' ]]
       ServerlessV2ScalingConfiguration:
-        MinCapacity: !If [isProd, 8, 4]
-        MaxCapacity: !If [isProd, 32, 16]
+        MinCapacity: !If [isProd, 8, 0.5]
+        MaxCapacity: !If [isProd, 16, 4]
 
-  DBInstance:
+  DBInstanceA:
     Type: 'AWS::RDS::DBInstance'
     Properties:
-      Engine: aurora-postgresql
-      DBInstanceClass: db.serverless
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
       DBClusterIdentifier: !Ref AuroraPostgresqlCluster
+      DBInstanceClass: !Ref DbInstanceClass
+      AvailabilityZone: !Sub "${Region}a"
+      DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
+      DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-a
+      DBSubnetGroupName: !Ref DbSubNetGroup
+      Engine: !FindInMap [ EngineMap, !Ref DbEngine, Engine ]
+
+  DBInstanceB:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      DBClusterIdentifier: !Ref AuroraPostgresqlCluster
+      DBInstanceClass: !Ref DbInstanceClass
+      AvailabilityZone: !Sub "${Region}b"
+      DBParameterGroupName: !Ref AuroraPostgresqlParameterGroup
+      DBInstanceIdentifier: !Sub ${Environment}-aurora-postgres-b
+      DBSubnetGroupName: !Ref DbSubNetGroup
+      Engine: !FindInMap [ EngineMap, !Ref DbEngine, Engine ]
 
   AuroraPostgresqlSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -139,7 +190,7 @@ Resources:
     Properties:
       GroupDescription: Internal network access to rds database
       VpcId:
-        Fn::ImportValue:
+         Fn::ImportValue:
           !Sub "${Environment}VPC-${AWS::Region}"
       GroupName: !Sub "${Environment}-services-vpc-rds-access"
       SecurityGroupIngress:
@@ -167,7 +218,7 @@ Resources:
             !Sub "${Environment}InternalSubnet-${Region}a"
         - Fn::ImportValue:
             !Sub "${Environment}InternalSubnet-${Region}b"
-      DBSubnetGroupDescription: serverless cluster subnet group
-      DBSubnetGroupName: !Sub "${Environment}-rds-serverless-subnet-group"
+      DBSubnetGroupDescription: cluster subnet group
+      DBSubnetGroupName: !Sub "${Environment}-rds-subnet-group"
 
 
