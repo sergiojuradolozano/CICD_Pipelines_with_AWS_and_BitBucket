@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "Environment" : "prod",
-    "Network" : "10.180"
+    "Network" : "30.0"
   },
 
   "Tags":

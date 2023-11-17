@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "Environment" : "uat",
-    "Network" : "10.170"
+    "Network" : "20.0"
   },
 
   "Tags":

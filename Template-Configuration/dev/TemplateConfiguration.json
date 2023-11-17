@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "Environment" : "dev",
-    "Network" : "10.160"
+    "Network" : "10.0"
   },
 
     "Tags":
