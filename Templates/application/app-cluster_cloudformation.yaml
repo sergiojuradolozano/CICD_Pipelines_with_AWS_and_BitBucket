@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: 'welcome-app'
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ecs
+      Subnets:
+        - Fn::ImportValue: !Sub "${Environment}-DmzSubnet-${Region}a"
+        - Fn::ImportValue: !Sub "${Environment}-DmzSubnet-${Region}b"
+      SecurityGroups:
+        - !Ref ApplicationLoadBalancerSecurityGroup
+
+  ApplicationLoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroup
+
+  ApplicationLoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for loadbalancer to services on ECS
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VPC-${AWS::Region}"
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: default
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VPC-${AWS::Region}"
+      Protocol: 'HTTP'
+      Port: '80'
+
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: 'welcome'
+      RetentionInDays: 1
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Sub "${Environment}-VPC-${AWS::Region}"
+      GroupDescription: for ecs containers
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref 'ApplicationLoadBalancerSecurityGroup'
+          IpProtocol: -1
+
+
+Outputs:
+  Cluster:
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub "${Environment}-ECSCluster"
+
+  Listener:
+    Description: listener port 80
+    Value: !Ref ApplicationLoadBalancerListener
+    Export:
+      Name: !Sub "${Environment}-Listener"
+
+  ContainerSecurityGroup:
+    Description: container security group
+    Value: !Ref ContainerSecurityGroup
+    Export:
+      Name: !Sub "${Environment}-ContainerSecurityGroup"
+
+  LoadBalancerDNS:
+    Description: Domain name for the loadbalancer
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub "${Environment}-DomainName"
