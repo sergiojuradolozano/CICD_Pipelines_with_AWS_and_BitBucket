@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - uat
+      - prod
+    Description: Enter dev, uat or prod. Default is dev
+  Region:
+    Type: String
+    Default: us-east-1
+    AllowedValues:
+      - us-east-1
+    Description: This value will be replace by the value of the TemplateConfiguration file. The Region from the cli script need to be on the allowed values list.
+
+  Network:
+    Type: String
+    Default: 10.0
+    Description: This value will be replace by the value of the TemplateConfiguration file
+
+Resources:
+  DmzSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      CidrBlock: !Sub ${Network}.10.0/24
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      VpcId: 
+        Fn::ImportValue: 
+          !Sub "${Environment}-VPC-${AWS::Region}"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: "Name"
+          Value: !Sub "DMZ ${Region}a"
+
+  DmzSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      CidrBlock: !Sub ${Network}.20.0/24
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      VpcId:
+        Fn::ImportValue:
+          !Sub "${Environment}-VPC-${AWS::Region}"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: "Name"
+          Value: !Sub "DMZ ${Region}a"
+
+  DmzSubnetRouteTable: 
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: 
+        Fn::ImportValue: 
+          !Sub "${Environment}-VPC-${AWS::Region}"
+      Tags: 
+        - Key: "Name"
+          Value: " DMZ"
+   
+  DmzSubnet1RouteTableAssociaton:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref DmzSubnetRouteTable
+      SubnetId: !Ref DmzSubnet1
+
+  DmzSubnet2RouteTableAssociaton:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DmzSubnetRouteTable
+      SubnetId: !Ref DmzSubnet2
+
+  DmzInternetSubnetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref DmzSubnetRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Fn::ImportValue:
+          !Sub "${Environment}-IGW-${AWS::Region}"
+
+Outputs:
+
+  DmzSubnet1:
+    Value: !Ref DmzSubnet1
+    Export:
+      Name: !Sub "${Environment}-DmzSubnet-${Region}a"
+
+  DmzSubnet2:
+    Value: !Ref DmzSubnet2
+    Export:
+      Name: !Sub "${Environment}-DmzSubnet-${Region}b"
+
