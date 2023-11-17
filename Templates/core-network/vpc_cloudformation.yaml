@@ -18,7 +18,7 @@ Parameters:
 
   Network:
     Type: String
-    Default: 10.160
+    Default: 10.0
     Description: This value will be replace by the value of the TemplateConfiguration file
 
 Resources:
@@ -63,10 +63,10 @@ Outputs:
   servicesVPC: 
     Value: !Ref VPC
     Export:
-      Name: !Sub "${Environment}VPC-${AWS::Region}"
+      Name: !Sub "${Environment}-VPC-${AWS::Region}"
 
   servicesIGW: 
     Value: !Ref IGW
     Export:
-      Name: !Sub "${Environment}IGW-${AWS::Region}"
+      Name: !Sub "${Environment}-IGW-${AWS::Region}"
            
