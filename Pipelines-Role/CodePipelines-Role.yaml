@@ -37,6 +37,8 @@ Resources:
               Service:
                 - codepipeline.amazonaws.com
                 - cloudformation.amazonaws.com
+                - ecs.amazonaws.com
+                - ecs-tasks.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       Path: "/"
@@ -52,6 +54,27 @@ Resources:
             Effect: Allow
             Action:
               - codestar-connections:UseConnection
+            Resource: '*'
+
+          - Sid: ECRPermissions
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:List*
+              - ecr:TagResource
+              - ecr:Describe*
+            Resource: '*'
+
+          - Sid: ECSPermissions
+            Effect: Allow
+            Action:
+              - ecs:Describe*
+              - ecs:Create*
+              - ecs:DeleteCluster
+              - ecs:Register*
             Resource: '*'
 
           - Sid: CloudFormationPermissions
@@ -125,7 +148,22 @@ Resources:
               - ec2:UnassignPrivateIpAddresses
               - ec2:describeAddresses
               - ec2:TerminateInstances
+              - ec2:CreateNetworkInterfacePermission
             Resource: '*'
+
+          - Sid: LoadBalancer
+            Effect: Allow
+            Action:
+              - elasticloadbalancing:DeregisterInstancesFromLoadBalancer
+              - elasticloadbalancing:DeregisterTargets
+              - elasticloadbalancing:Describe*
+              - elasticloadbalancing:RegisterInstancesWithLoadBalancer
+              - elasticloadbalancing:RegisterTargets
+              - elasticloadbalancing:DeleteTargetGroup
+              - elasticloadbalancing:Create*
+              - elasticloadbalancing:DeleteLoadBalancer
+            Resource: '*'
+
 
           - Sid: Lambda
             Effect: Allow
@@ -178,47 +216,10 @@ Resources:
               - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
+              - logs:PutRetentionPolicy
+              - logs:DeleteLogGroup
             Resource:
               - !Sub arn:aws:logs:${Region}:${AWS::AccountId}:log-group:*
-
-          - Sid: SecretsManager
-            Effect: Allow
-            Action:
-              - secretsmanager:Describe*
-              - secretsmanager:PutSecretValue
-              - secretsmanager:TagResource
-              - secretsmanager:CreateSecret
-              - secretsmanager:DeleteSecret
-              - secretsmanager:GetRandomPassword
-              - secretsmanager:RotateSecret
-              - secretsmanager:CancelRotateSecret
-              - secretsmanager:ListSecrets
-              - secretsmanager:UpdateSecretVersionStage
-              - secretsmanager:GetSecretValue
-
-            Resource: "*"
-
-          - Sid: rds
-            Effect: Allow
-            Action:
-              - rds:CreateDBSubnetGroup
-              - rds:CreateDBClusterParameterGroup
-              - rds:DeleteDBClusterParameterGroup
-              - rds:ModifyDBClusterParameterGroup
-              - rds:CreateDBParameterGroup
-              - rds:DeleteDBParameterGroup
-              - rds:ModifyDBParameterGroup
-              - rds:DeleteDBSubnetGroup
-              - rds:CreateDBCluster
-              - rds:CreateDBInstance
-              - rds:AddRoleToDBCluster
-              - rds:ModifyDBInstance
-              - rds:ModifyDBCluster
-              - rds:DeleteDBCluster
-              - rds:Describe*
-              - rds:DeleteDBInstance
-              - rds:AddTagsToResource
-            Resource: '*'
 
       Roles:
         - Ref: "CodePipelinesRole"

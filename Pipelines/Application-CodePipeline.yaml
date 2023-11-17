@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Deploy Core-Network CodePipeline"
+Description: "Deploy Application CodePipeline"
 Parameters:
   Environment:
     Type: String
@@ -38,27 +38,27 @@ Conditions:
   isDev: !Equals [ !Ref Environment, "dev" ]
 
 Resources:
-  CoreNetworkConnection:
+  ApplicationConnection:
     Type: 'AWS::CodeStarConnections::Connection'
     Properties:
-      ConnectionName: !Sub "${Environment}-Core-Network"
+      ConnectionName: !Sub "${Environment}-Application"
       ProviderType: Bitbucket
       Tags:
         - Key: Environment
           Value: !Sub "${Environment}"
         - Key: Package
-          Value: core-network
+          Value: application
         - Key: Application
           Value: INFRA
 
-  CoreNetworkCodePipeline:
+  ApplicationCodePipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
       Tags:
         - Key: Environment
           Value: !Sub "${Environment}"
         - Key: Package
-          Value: core-network
+          Value: application
         - Key: Application
           Value: INFRA
       ArtifactStore:
@@ -69,7 +69,7 @@ Resources:
         !If [ isDev, true, false ]
       RoleArn:
         Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
-      Name: Core-Network
+      Name: Application
 
       Stages:
         - Name: Source
@@ -82,7 +82,7 @@ Resources:
                 Version: 1
                 Provider: CodeStarSourceConnection
               Configuration:
-                ConnectionArn: !Ref CoreNetworkConnection
+                ConnectionArn: !Ref ApplicationConnection
                 DetectChanges: !FindInMap [ SourceChangeMap, !Ref Environment, Change ]
                 BranchName: !FindInMap [ SourceBranchMap, !Ref Environment, Branch ]
                 FullRepositoryId: projectsergio/ci-cd_with_aws
@@ -90,9 +90,9 @@ Resources:
                 - Name: SourceArtifact
               RunOrder: 1
 
-        - Name: VPC
+        - Name: Application-Cluster
           Actions:
-            - Name: VPC
+            - Name: Application-Cluster
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -105,16 +105,14 @@ Resources:
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
-                StackName: !Sub "${Environment}-vpc"
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub "SourceArtifact::Templates/core-network/vpc_cloudformation.yaml"
+                StackName: !Sub "${Environment}-app-cluster"
+                TemplatePath: !Sub "SourceArtifact::Templates/application/app-cluster_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
 
-
-        - Name: Subnets
+        - Name: Welcome-Api
           Actions:
-            - Name: Subnets
+            - Name: Welcome-Api
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
@@ -127,8 +125,7 @@ Resources:
                 Capabilities: CAPABILITY_IAM,CAPABILITY_NAMED_IAM
                 RoleArn:
                   Fn::ImportValue: !Sub "${Environment}-CodePipelines-Role-Arn"
-                StackName: !Sub "${Environment}-subnets"
-                TemplateConfiguration: !Sub "SourceArtifact::Template-Configuration/${Environment}/TemplateConfiguration.json"
-                TemplatePath: !Sub "SourceArtifact::Templates/core-network/subnets_cloudformation.yaml"
+                StackName: !Sub "${Environment}-app"
+                TemplatePath: !Sub "SourceArtifact::Templates/application/welcome-api_cloudformation.yaml"
               RunOrder: 1
               Region: !Sub ${Region}
